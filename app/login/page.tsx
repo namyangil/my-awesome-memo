@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 
-export default function LoginPage() {
+// 1. 기존 LoginPage의 내용을 LoginForm이라는 이름으로 분리합니다.
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') ?? '/'
@@ -101,5 +102,15 @@ export default function LoginPage() {
       </div>
       <Toaster position="bottom-center" />
     </div>
+  )
+}
+
+// 2. Suspense로 감싼 실제 Page 컴포넌트를 내보냅니다.
+export default function LoginPage() {
+  return (
+    // useSearchParams를 사용하는 컴포넌트는 반드시 Suspense로 감싸야 빌드 에러가 나지 않습니다.
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">로딩 중...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
