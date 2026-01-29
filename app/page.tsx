@@ -1,103 +1,202 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState, useCallback, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
+import { Header } from '@/components/header'
+import { MemoList } from '@/components/memo-list'
+import { MemoEditor } from '@/components/memo-editor'
+import { FloatingActionButton } from '@/components/floating-action-button'
+import { StatsBar } from '@/components/stats-bar'
+import { type Memo, type MemoColor } from '@/lib/types'
+import { Toaster } from '@/components/ui/sonner'
+import { toast } from 'sonner'
+
+// Sample initial memos for demo
+const INITIAL_MEMOS: Memo[] = [
+  {
+    id: '1',
+    title: '오늘의 할 일',
+    content: '1. 프로젝트 미팅 참석\n2. 보고서 작성 완료\n3. 저녁 운동하기\n4. 책 30분 읽기',
+    color: 'peach',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    isPinned: true,
+  },
+  {
+    id: '2',
+    title: '회의 메모',
+    content: '다음 주 프로젝트 일정 논의\n- 디자인 검토: 월요일\n- 개발 시작: 화요일\n- QA 테스트: 금요일',
+    color: 'mint',
+    createdAt: new Date(Date.now() - 86400000),
+    updatedAt: new Date(Date.now() - 86400000),
+    isPinned: false,
+  },
+  {
+    id: '3',
+    title: '장보기 목록',
+    content: '우유, 계란, 빵, 사과, 바나나, 치즈',
+    color: 'lemon',
+    createdAt: new Date(Date.now() - 172800000),
+    updatedAt: new Date(Date.now() - 172800000),
+    isPinned: false,
+  },
+  {
+    id: '4',
+    title: '아이디어 노트',
+    content: '새로운 앱 기능 아이디어:\n- 음성 메모 지원\n- 이미지 첨부\n- 태그 시스템\n- 다크 모드',
+    color: 'lavender',
+    createdAt: new Date(Date.now() - 259200000),
+    updatedAt: new Date(Date.now() - 259200000),
+    isPinned: true,
+  },
+  {
+    id: '5',
+    title: '독서 기록',
+    content: '「세이노의 가르침」 - 인생의 방향에 대해 깊이 생각하게 되었다. 매일 조금씩이라도 성장하자.',
+    color: 'rose',
+    createdAt: new Date(Date.now() - 345600000),
+    updatedAt: new Date(Date.now() - 345600000),
+    isPinned: false,
+  },
+  {
+    id: '6',
+    title: '맛집 리스트',
+    content: '1. 강남역 파스타집\n2. 홍대 브런치 카페\n3. 이태원 타코집',
+    color: 'sky',
+    createdAt: new Date(Date.now() - 432000000),
+    updatedAt: new Date(Date.now() - 432000000),
+    isPinned: false,
+  },
+]
+
+export default function MemoApp() {
+  const { data: session } = useSession()
+  const [memos, setMemos] = useState<Memo[]>(INITIAL_MEMOS)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isEditorOpen, setIsEditorOpen] = useState(false)
+  const [editingMemo, setEditingMemo] = useState<Memo | null>(null)
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const pinnedCount = memos.filter((m) => m.isPinned).length
+    const todayCount = memos.filter((m) => {
+      const memoDate = new Date(m.createdAt)
+      memoDate.setHours(0, 0, 0, 0)
+      return memoDate.getTime() === today.getTime()
+    }).length
+
+    return {
+      total: memos.length,
+      pinned: pinnedCount,
+      today: todayCount,
+    }
+  }, [memos])
+
+  const handleCreateMemo = useCallback(() => {
+    setEditingMemo(null)
+    setIsEditorOpen(true)
+  }, [])
+
+  const handleEditMemo = useCallback((memo: Memo) => {
+    setEditingMemo(memo)
+    setIsEditorOpen(true)
+  }, [])
+
+  const handleSaveMemo = useCallback((memoData: Partial<Memo>) => {
+    if (memoData.id) {
+      // Update existing memo
+      setMemos((prev) =>
+        prev.map((m) =>
+          m.id === memoData.id
+            ? {
+                ...m,
+                title: memoData.title || '',
+                content: memoData.content || '',
+                color: memoData.color as MemoColor || m.color,
+                updatedAt: new Date(),
+              }
+            : m
+        )
+      )
+      toast.success('메모가 수정되었어요!')
+    } else {
+      // Create new memo
+      const newMemo: Memo = {
+        id: Date.now().toString(),
+        title: memoData.title || '',
+        content: memoData.content || '',
+        color: memoData.color as MemoColor || 'peach',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isPinned: false,
+      }
+      setMemos((prev) => [newMemo, ...prev])
+      toast.success('새 메모가 작성되었어요!')
+    }
+  }, [])
+
+  const handleDeleteMemo = useCallback((id: string) => {
+    setMemos((prev) => prev.filter((m) => m.id !== id))
+    toast.success('메모가 삭제되었어요!')
+  }, [])
+
+  const handleTogglePin = useCallback((id: string) => {
+    setMemos((prev) =>
+      prev.map((m) =>
+        m.id === id ? { ...m, isPinned: !m.isPinned, updatedAt: new Date() } : m
+      )
+    )
+  }, [])
+
+  const handleCloseEditor = useCallback(() => {
+    setIsEditorOpen(false)
+    setEditingMemo(null)
+  }, [])
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-background">
+      <Header
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        userEmail={session?.user?.email}
+        userName={session?.user?.name}
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {/* Stats */}
+        <StatsBar
+          totalMemos={stats.total}
+          pinnedMemos={stats.pinned}
+          todayMemos={stats.today}
+        />
+
+        {/* Memo List */}
+        <MemoList
+          memos={memos}
+          searchQuery={searchQuery}
+          onEdit={handleEditMemo}
+          onDelete={handleDeleteMemo}
+          onTogglePin={handleTogglePin}
+        />
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+      {/* FAB */}
+      <FloatingActionButton onClick={handleCreateMemo} />
+
+      {/* Editor Modal */}
+      <MemoEditor
+        memo={editingMemo}
+        isOpen={isEditorOpen}
+        onClose={handleCloseEditor}
+        onSave={handleSaveMemo}
+        onDelete={handleDeleteMemo}
+      />
+
+      {/* Toast Notifications */}
+      <Toaster position="bottom-center" />
     </div>
-  );
+  )
 }
